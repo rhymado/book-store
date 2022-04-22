@@ -1,21 +1,4 @@
 const db = require("../config/db");
-const books = [
-  {
-    id: 1,
-    title: "Harry Potter",
-    author: "JK Rowling",
-  },
-  {
-    id: 2,
-    title: "Naruto",
-    author: "Masashi Kishimoto",
-  },
-  {
-    id: 3,
-    title: "Laskar Pelangi",
-    author: "Andrea Hirata",
-  },
-];
 
 const getBooksFromServer = () => {
   return new Promise((resolve, reject) => {
@@ -42,23 +25,69 @@ const getBooksFromServer = () => {
 
 const getSingleBookFromServer = (id) => {
   return new Promise((resolve, reject) => {
-    let err = false;
-    const book = books.filter((book) => book.id === id);
-    if (err)
-      return reject({
-        err: new Error(err),
-        status: 500,
+    // parameterized query
+    const sqlQuery = "select * from books where id = $1";
+    db.query(sqlQuery, [id])
+      .then((data) => {
+        if (data.rows.length === 0) {
+          return reject({ status: 404, err: "Book Not Found" });
+        }
+        const response = {
+          data: data.rows,
+        };
+        resolve(response);
+      })
+      .catch((err) => {
+        reject({ status: 500, err });
       });
-    if (book.length === 0)
-      return reject({
-        err: new Error("Book Not Found"),
-        status: 404,
+  });
+};
+
+const findBook = (query) => {
+  return new Promise((resolve, reject) => {
+    // asumsikan query berisikan title, order, sort
+    const { title, order, sort } = query;
+    let sqlQuery =
+      "select * from books where lower(title) like lower('%' || $1 || '%')";
+    if (order) {
+      sqlQuery += " order by " + sort + " " + order;
+    }
+    db.query(sqlQuery, [title])
+      .then((result) => {
+        if (result.rows.length === 0) {
+          return reject({ status: 404, err: "Book Not Found" });
+        }
+        const response = {
+          total: result.rowCount,
+          data: result.rows,
+        };
+        resolve(response);
+      })
+      .catch((err) => {
+        reject({ status: 500, err });
       });
-    return resolve(book);
+  });
+};
+
+const createNewBook = (body) => {
+  return new Promise((resolve, reject) => {
+    const { title, author, genre } = body;
+    const sqlQuery =
+      "INSERT INTO books(title, author, genre) VALUES ($1, $2, $3) RETURNING *";
+    db.query(sqlQuery, [title, author, genre])
+      .then(({ rows }) => {
+        const response = {
+          data: rows[0],
+        };
+        resolve(response);
+      })
+      .catch((err) => reject({ status: 500, err }));
   });
 };
 
 module.exports = {
   getBooksFromServer,
   getSingleBookFromServer,
+  findBook,
+  createNewBook,
 };
