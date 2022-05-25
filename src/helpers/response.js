@@ -2,7 +2,7 @@ const response = {};
 
 response.successResponse = (res, status, data, meta) => {
   res.status(status).json({
-    data,
+    list: data,
     meta,
     err: null,
   });
